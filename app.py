@@ -160,24 +160,40 @@ def update_profile():
     if not name or not designation:
         return jsonify({'error': 'Name and designation are required'}), 400
 
-    conn = get_db_connection()
-    cur = conn.cursor()
-    
-    cur.execute(
-        '''UPDATE users 
-           SET name = %s, designation = %s, is_profile_complete = TRUE, updated_at = CURRENT_TIMESTAMP
-           WHERE id = %s
-           RETURNING id, name, email, avatar_url, designation, is_profile_complete''',
-        (name, designation, user_id)
-    )
-    
-    updated_user = cur.fetchone()
-    conn.commit()
-    cur.close()
-    conn.close()
-    
-    # Update session
-    session['user'] = {
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute(
+            '''UPDATE users 
+               SET name = %s, designation = %s, is_profile_complete = TRUE, updated_at = CURRENT_TIMESTAMP
+               WHERE id = %s
+               RETURNING id, name, email, avatar_url, designation, is_profile_complete''',
+            (name, designation, user_id)
+        )
+        
+        updated_user = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        if not updated_user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Update session
+        session['user'] = {
+            'id': updated_user['id'],
+            'name': updated_user['name'],
+            'email': updated_user['email'],
+            'avatar_url': updated_user['avatar_url'],
+            'designation': updated_user['designation'],
+            'is_profile_complete': updated_user['is_profile_complete']
+        }
+        
+        return jsonify(session['user'])
+    except Exception as e:
+        print(f"Error updating profile: {e}")
+        return jsonify({'error': 'Database error occurred'}), 500
         'id': updated_user['id'],
         'name': updated_user['name'],
         'email': updated_user['email'],
@@ -258,7 +274,9 @@ def get_tasks():
         query += ' AND t.assigned_to_user_id = %s'
         params.append(user_id)
     elif task_type == 'assigned':
-        query += ' AND t.assigned_by_user_id = %s'
+        # Tasks I assigned to OTHERS (not to myself)
+        query += ' AND t.assigned_by_user_id = %s AND t.assigned_to_user_id != %s'
+        params.append(user_id)
         params.append(user_id)
     
     if status:
