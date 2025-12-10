@@ -19,10 +19,12 @@ CORS(app, supports_credentials=True, origins=[FRONTEND_URL, 'http://localhost:30
 # Set the secret key for session management
 app.secret_key = os.environ.get('FLASK_SECRET_KEY')
 
-# Session configuration for production
-app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+# Session configuration - Allow cross-origin cookies
+# Note: SameSite=None requires Secure=True, but Render uses HTTPS so this works
+app.config['SESSION_COOKIE_SECURE'] = True  # Render uses HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Required for cross-origin cookies
+app.config['SESSION_COOKIE_DOMAIN'] = None  # Allow cookies across domains
 
 # Get base URLs from environment
 BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:5001')
